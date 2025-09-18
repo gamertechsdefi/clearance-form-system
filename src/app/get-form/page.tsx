@@ -91,16 +91,18 @@ export default function GetForm() {
       const reader = new FileReader();
       
       reader.onloadend = () => {
-        const newImages = [...formData.clearanceInfo.images];
-        newImages[index] = reader.result as string;
-        
-        setFormData(prev => ({
-          ...prev,
-          clearanceInfo: {
-            ...prev.clearanceInfo,
-            images: newImages
-          }
-        }));
+        if (typeof reader.result === 'string') {
+          const newImages = [...formData.clearanceInfo.images];
+          newImages[index] = reader.result;
+          
+          setFormData(prev => ({
+            ...prev,
+            clearanceInfo: {
+              ...prev.clearanceInfo,
+              images: newImages
+            }
+          }));
+        }
       };
       
       reader.readAsDataURL(file);
@@ -110,14 +112,19 @@ export default function GetForm() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     const [section, field] = name.split('.');
-    
-    setFormData(prev => ({
-      ...prev,
-      [section]: {
-        ...prev[section as keyof FormData],
-        [field]: value
+
+    setFormData(prev => {
+      switch (section) {
+        case 'personalInfo':
+          return { ...prev, personalInfo: { ...prev.personalInfo, [field as keyof FormData['personalInfo']]: value } };
+        case 'academicInfo':
+          return { ...prev, academicInfo: { ...prev.academicInfo, [field as keyof FormData['academicInfo']]: value } };
+        case 'clearanceInfo':
+          return { ...prev, clearanceInfo: { ...prev.clearanceInfo, [field as keyof FormData['clearanceInfo']]: value } };
+        default:
+          return prev;
       }
-    }));
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
