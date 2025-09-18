@@ -131,9 +131,9 @@ function ClearanceFormInner() {
     link.click();
   };
 
-  // if (!formData) {
-  //   return <div>x</div>;
-  // }
+  if (!formData) {
+    return <div>x</div>;
+  }
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -155,12 +155,12 @@ function ClearanceFormInner() {
           </>
         )}
 
-        <OverlayItem top={positions.name.top} left={positions.name.left}>{`${formData.personalInfo.firstName} ${formData.personalInfo.lastName}`}</OverlayItem>
-        <OverlayItem top={positions.department.top} left={positions.department.left}>{formData.academicInfo.department}</OverlayItem>
-        <OverlayItem top={positions.matricNo.top} left={positions.matricNo.left}>{formData.academicInfo.matricNumber}</OverlayItem>
-        <OverlayItem top={positions.school.top} left={positions.school.left}>{formData.academicInfo.school}</OverlayItem>
-        <OverlayItem top={positions.level.top} left={positions.level.left}>{formData.academicInfo.level}</OverlayItem>
-        <OverlayItem top={positions.tellerNo.top} left={positions.tellerNo.left}>GeneratedTellerNo</OverlayItem>
+        <OverlayItem top={positions.name.top} left={positions.name.left}>{`${formData?.personalInfo.firstName ?? ''} ${formData?.personalInfo.lastName ?? ''}`}</OverlayItem>
+        <OverlayItem top={positions.department.top} left={positions.department.left}>{formData?.academicInfo.department ?? ''}</OverlayItem>
+        <OverlayItem top={positions.matricNo.top} left={positions.matricNo.left}>{formData?.academicInfo.matricNumber ?? ''}</OverlayItem>
+        <OverlayItem top={positions.school.top} left={positions.school.left}>{formData?.academicInfo.school ?? ''}</OverlayItem>
+        <OverlayItem top={positions.level.top} left={positions.level.left}>{formData?.academicInfo.level ?? ''}</OverlayItem>
+        <OverlayItem top={positions.tellerNo.top} left={positions.tellerNo.left}>Generated Teller</OverlayItem>
 
         {/* {formData.clearanceInfo.images.map((image, index) => 
           image && positions.images[index] && (
