@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import html2canvas from 'html2canvas';
 
@@ -24,7 +24,7 @@ type FormData = {
   };
 };
 
-export default function ClearanceForm() {
+function ClearanceFormInner() {
   const [formData, setFormData] = useState<FormData | null>(null);
 
   // Refs for capture and preview
@@ -132,7 +132,7 @@ export default function ClearanceForm() {
   };
 
   if (!formData) {
-    return <div>Loading...</div>;
+    return <div>x</div>;
   }
 
   return (
@@ -294,5 +294,13 @@ export default function ClearanceForm() {
 
       <div ref={previewRef} id="preview" className="mt-6 hidden" />
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense>
+      <ClearanceFormInner />
+    </Suspense>
   );
 }
