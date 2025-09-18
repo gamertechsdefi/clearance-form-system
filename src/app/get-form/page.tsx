@@ -130,6 +130,12 @@ export default function GetForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateStep()) {
+      try {
+        if (typeof window !== 'undefined') {
+          const key = `formData-${formData.academicInfo.matricNumber}`;
+          localStorage.setItem(key, JSON.stringify(formData));
+        }
+      } catch {}
       router.push(`/get-form/generate?matricNumber=${formData.academicInfo.matricNumber}`);
     }
   };
