@@ -191,14 +191,16 @@ export default function ClearanceForm() {
         <div className="mt-4 p-4 border rounded bg-white max-w-[923px]">
           <h2 className="font-semibold mb-2">Fine-tune positions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {([
-              ['name','Name'] as const,
-              ['department','Department'] as const,
-              ['matricNo','Matric No'] as const,
-              ['school','School'] as const,
-              ['level','Level'] as const,
-              ['tellerNo','Teller No'] as const,
-            ]).map(([key, label]) => (
+            {(
+              [
+                ['name', 'Name'],
+                ['department', 'Department'],
+                ['matricNo', 'Matric No'],
+                ['school', 'School'],
+                ['level', 'Level'],
+                ['tellerNo', 'Teller No'],
+              ] as ReadonlyArray<[keyof Positions, string]>
+            ).map(([key, label]) => (
               <div key={key} className="border rounded p-3">
                 <div className="text-sm font-medium mb-2">{label}</div>
                 <div className="flex items-center gap-2">
@@ -208,11 +210,16 @@ export default function ClearanceForm() {
                     min={0}
                     max={100}
                     step={0.1}
-                    value={(positions as any)[key].top}
-                    onChange={(e) => setPositions(prev => ({ ...prev, [key]: { ...((prev as any)[key]), top: parseFloat(e.target.value) } }))}
+                    value={positions[key].top}
+                    onChange={(e) =>
+                      setPositions(prev => ({
+                        ...prev,
+                        [key]: { ...prev[key], top: parseFloat(e.target.value) },
+                      }))
+                    }
                     className="flex-1"
                   />
-                  <span className="text-xs w-14 text-right">{(positions as any)[key].top.toFixed(1)}%</span>
+                  <span className="text-xs w-14 text-right">{positions[key].top.toFixed(1)}%</span>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
                   <label className="text-xs w-12">Left</label>
@@ -221,11 +228,16 @@ export default function ClearanceForm() {
                     min={0}
                     max={100}
                     step={0.1}
-                    value={(positions as any)[key].left}
-                    onChange={(e) => setPositions(prev => ({ ...prev, [key]: { ...((prev as any)[key]), left: parseFloat(e.target.value) } }))}
+                    value={positions[key].left}
+                    onChange={(e) =>
+                      setPositions(prev => ({
+                        ...prev,
+                        [key]: { ...prev[key], left: parseFloat(e.target.value) },
+                      }))
+                    }
                     className="flex-1"
                   />
-                  <span className="text-xs w-14 text-right">{(positions as any)[key].left.toFixed(1)}%</span>
+                  <span className="text-xs w-14 text-right">{positions[key].left.toFixed(1)}%</span>
                 </div>
               </div>
             ))}
