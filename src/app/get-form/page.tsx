@@ -59,7 +59,7 @@ export default function GetForm() {
   }, [formData.academicInfo.institutionType]);
 
   const validateStep = () => {
-    let errors = { images: '' };
+    const errors = { images: '' };
     let isValid = true;
 
     if (step === 2) {
