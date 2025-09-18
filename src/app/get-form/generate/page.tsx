@@ -131,9 +131,9 @@ function ClearanceFormInner() {
     link.click();
   };
 
-  if (!formData) {
-    return <div>x</div>;
-  }
+  // if (!formData) {
+  //   return <div>x</div>;
+  // }
 
   return (
     <div className="container mx-auto px-4 py-6">
