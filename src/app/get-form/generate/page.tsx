@@ -1,8 +1,9 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import html2canvas from 'html2canvas';
+import { useFormData } from '../../../contexts/FormDataContext';
 
 type FormData = {
   personalInfo: {
@@ -25,13 +26,14 @@ type FormData = {
 };
 
 function ClearanceFormInner() {
-  const [formData, setFormData] = useState<FormData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { formData } = useFormData();
+  const router = useRouter();
 
   // Refs for capture and preview
   const captureRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-
-  const searchParams = useSearchParams();
 
   type Pos = { top: number; left: number; width?: number; height?: number };
   type Positions = {
@@ -77,14 +79,36 @@ function ClearanceFormInner() {
   }, [positions]);
 
   useEffect(() => {
-    const matricNumber = searchParams.get('matricNumber');
-    if (matricNumber) {
-      const storedData = localStorage.getItem(`formData-${matricNumber}`);
-      if (storedData) {
-        setFormData(JSON.parse(storedData));
+    const validateFormData = () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        // Check if form data exists in context
+        if (!formData) {
+          setError('No form data found. Please go back and fill out the form.');
+          setIsLoading(false);
+          return;
+        }
+
+        // Validate that we have the required data
+        if (!formData.personalInfo?.firstName || !formData.academicInfo?.matricNumber) {
+          setError('Incomplete form data. Please go back and fill out the form again.');
+          setIsLoading(false);
+          return;
+        }
+
+        // Form data is valid
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error validating form data:', error);
+        setError('Error loading form data. Please go back and fill out the form again.');
+        setIsLoading(false);
       }
-    }
-  }, [searchParams]);
+    };
+
+    validateFormData();
+  }, [formData]);
 
   const containerStyle = useMemo<React.CSSProperties>(() => ({
     position: 'relative',
@@ -115,25 +139,103 @@ function ClearanceFormInner() {
 
   const generateCanvas = async () => {
     if (!captureRef.current || !previewRef.current) return;
-    const canvas = await html2canvas(captureRef.current, { useCORS: true, backgroundColor: null });
-    previewRef.current.innerHTML = '';
-    previewRef.current.appendChild(canvas);
-    previewRef.current.classList.remove('hidden');
+
+    try {
+      const canvas = await html2canvas(captureRef.current, {
+        useCORS: true,
+        backgroundColor: null,
+        allowTaint: true,
+        scale: 2 // Higher quality for production
+      });
+      previewRef.current.innerHTML = '';
+      previewRef.current.appendChild(canvas);
+      previewRef.current.classList.remove('hidden');
+    } catch (error) {
+      console.error('Error generating canvas:', error);
+      alert('Error generating preview. Please try again.');
+    }
   };
 
   const downloadPng = async () => {
     if (!captureRef.current) return;
-    const canvas = await html2canvas(captureRef.current, { useCORS: true, backgroundColor: null });
-    const dataUrl = canvas.toDataURL('image/png');
-    const link = document.createElement('a');
-    link.href = dataUrl;
-    link.download = 'clearance-form.png';
-    link.click();
+
+    try {
+      const canvas = await html2canvas(captureRef.current, {
+        useCORS: true,
+        backgroundColor: null,
+        allowTaint: true,
+        scale: 2 // Higher quality for production
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `clearance-form-${formData?.academicInfo.matricNumber || 'unknown'}.png`;
+      link.click();
+    } catch (error) {
+      console.error('Error downloading PNG:', error);
+      alert('Error downloading file. Please try again.');
+    }
   };
 
-  // if (!formData) {
-  //   return <div>x</div>;
-  // }
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-6">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading your clearance form...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-6">
+        <div className="max-w-md mx-auto bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <div className="text-red-600 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-red-800 mb-2">Error Loading Form</h2>
+          <p className="text-red-700 mb-4">{error}</p>
+          <button
+            onClick={() => router.push('/get-form')}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Go Back to Form
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if no form data
+  if (!formData) {
+    return (
+      <div className="container mx-auto px-4 py-6">
+        <div className="max-w-md mx-auto bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+          <div className="text-yellow-600 mb-4">
+            <svg className="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <h2 className="text-lg font-semibold text-yellow-800 mb-2">No Form Data</h2>
+          <p className="text-yellow-700 mb-4">Please fill out the form first to generate your clearance form.</p>
+          <button
+            onClick={() => router.push('/get-form')}
+            className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700"
+          >
+            Fill Out Form
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -145,6 +247,14 @@ function ClearanceFormInner() {
           alt="Clearance form template"
           className="w-full h-full object-fill select-none pointer-events-none"
           draggable={false}
+          onError={(e) => {
+            console.error('Error loading form template image');
+            e.currentTarget.style.backgroundColor = '#f3f4f6';
+            e.currentTarget.alt = 'Form template could not be loaded';
+          }}
+          onLoad={() => {
+            console.log('Form template image loaded successfully');
+          }}
         />
 
         {showGuides && (
