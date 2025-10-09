@@ -150,12 +150,24 @@ export default function GetForm() {
         const ia = new Uint8Array(ab);
         for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
         const blob = new Blob([ab], { type: mime });
-        const ext = mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpg' : mime === 'application/pdf' ? 'pdf' : 'bin';
-        return { blob, mime, ext } as const;
-      };
+         const ext = mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpg' : mime === 'application/pdf' ? 'pdf' : 'bin';
+         return { blob, mime, ext } as const;
+       };
+ 
+       // Helper: extract a safe error message from unknown
+       const getErrorMessage = (e: unknown) => {
+         if (e instanceof Error) return e.message;
+         if (typeof e === 'string') return e;
+         if (e && typeof e === 'object' && 'message' in e) {
+           const m = (e as { message?: unknown }).message;
+           if (typeof m === 'string') return m;
+         }
+         try { return JSON.stringify(e); } catch { return String(e); }
+       };
 
-      // Perform parallel uploads (if any)
-      const uploadedPaths: string[] = [];
+       // Perform parallel uploads (if any)
+       const uploadedPaths: string[] = [];
+ 
       if (matric && receiptImages.length > 0) {
         const uploadPromises = receiptImages.map(async (dataUrl, idx) => {
           try {
@@ -168,9 +180,9 @@ export default function GetForm() {
             if (error) throw error;
             uploadedPaths.push(path);
             return { ok: true, path } as const;
-          } catch (err: any) {
+          } catch (err: unknown) {
             console.error('Upload failed', { index: idx, err });
-            return { ok: false, index: idx, message: err?.message || 'Unknown error' } as const;
+            return { ok: false, index: idx, message: getErrorMessage(err) } as const;
           }
         });
 
@@ -178,7 +190,7 @@ export default function GetForm() {
         const failures: { index: number; message: string }[] = [];
         results.forEach((r) => {
           if (r.status === 'fulfilled' && !r.value.ok) failures.push({ index: r.value.index, message: r.value.message });
-          if (r.status === 'rejected') failures.push({ index: -1, message: (r as any).reason?.message || 'Upload promise rejected' });
+          if (r.status === 'rejected') failures.push({ index: -1, message: getErrorMessage(r.reason) });
         });
 
         if (failures.length > 0) {
@@ -228,7 +240,7 @@ export default function GetForm() {
       } catch {}
 
       router.push(`/get-form/generate?matricNumber=${formData.academicInfo.matricNumber}`);
-    } catch (err) {
+    } catch (err: unknown) {
       // eslint-disable-next-line no-alert
       alert('Unexpected error saving data. Please try again.');
     } finally {
