@@ -1,7 +1,7 @@
 'use client';
 
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import html2canvas from 'html2canvas';
 import { useFormData } from '../../../contexts/FormDataContext';
 
@@ -28,8 +28,9 @@ type FormData = {
 function ClearanceFormInner() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { formData } = useFormData();
+  const { formData, setFormData } = useFormData();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Refs for capture and preview
   const captureRef = useRef<HTMLDivElement>(null);
@@ -84,9 +85,8 @@ function ClearanceFormInner() {
       setError(null);
 
       try {
-        // Check if form data exists in context
+        // If no form data yet, wait for hydration effect to run
         if (!formData) {
-          setError('No form data found. Please go back and fill out the form.');
           setIsLoading(false);
           return;
         }
@@ -109,6 +109,26 @@ function ClearanceFormInner() {
 
     validateFormData();
   }, [formData]);
+
+  // Hydrate form data from localStorage using the matricNumber query param if context is empty
+  useEffect(() => {
+    if (formData) return;
+    try {
+      if (typeof window === 'undefined') return;
+      const matricNumber = (searchParams.get('matricNumber') || '').trim();
+      const key = matricNumber ? `formData-${matricNumber}` : null;
+      const raw = key ? localStorage.getItem(key) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw) as FormData;
+        if (parsed?.personalInfo?.firstName && parsed?.academicInfo?.matricNumber) {
+          setFormData(parsed);
+        }
+      }
+    } catch (e) {
+      // ignore hydration errors and let normal error UI handle
+      console.error('Hydration from localStorage failed', e);
+    }
+  }, [formData, searchParams, setFormData]);
 
   const containerStyle = useMemo<React.CSSProperties>(() => ({
     position: 'relative',
