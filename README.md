@@ -34,3 +34,39 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Supabase Setup
+
+1. Create a project at https://supabase.com and note the Project URL and anon key.
+2. Create a `.env.local` file at the project root with the following variables:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+3. A browser Supabase client is available at `src/lib/supabaseClient.ts`:
+   - Import it where needed, for example:
+
+```ts
+import { supabase } from '@/lib/supabaseClient';
+```
+
+4. SQL to create the `profiles` table (paste in Supabase SQL Editor):
+
+```sql
+create table if not exists public.profiles (
+  matric_number text primary key,
+  name          text not null,
+  department    text not null,
+  school        text not null,
+  level         text not null,
+  teller_number text not null,
+  created_at    timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+create policy "Allow read access to everyone" on public.profiles for select using (true);
+```
+
+You can adjust RLS policies later to fit your auth needs.

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import supabase from "../../lib/supabaseClient"
 
 type FormData = {
   personalInfo: {
@@ -129,14 +130,109 @@ export default function GetForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateStep()) {
+    if (!validateStep()) return;
+
+    setIsLoading(true);
+    try {
+      // Upload receipts to Supabase Storage under `receipts/<matric_number>/...`
+      const matric = formData.academicInfo.matricNumber.trim();
+      // Sanitize to avoid nested paths. Replace any non [A-Za-z0-9_-] with '_'
+      const safeMatric = matric.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const receiptImages = formData.clearanceInfo.images.filter(Boolean) as string[];
+
+      // Helper: convert data URL to Blob and filename extension
+      const dataUrlToBlob = (dataUrl: string) => {
+        const [meta, base64] = dataUrl.split(',');
+        const mimeMatch = meta.match(/data:(.*?);base64/);
+        const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+        const byteString = atob(base64);
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+        const blob = new Blob([ab], { type: mime });
+        const ext = mime === 'image/png' ? 'png' : mime === 'image/jpeg' ? 'jpg' : mime === 'application/pdf' ? 'pdf' : 'bin';
+        return { blob, mime, ext } as const;
+      };
+
+      // Perform parallel uploads (if any)
+      const uploadedPaths: string[] = [];
+      if (matric && receiptImages.length > 0) {
+        const uploadPromises = receiptImages.map(async (dataUrl, idx) => {
+          try {
+            const { blob, mime, ext } = dataUrlToBlob(dataUrl);
+            // Flat key (no '/'): <matric>-doc-<n>.<ext>
+            const path = `${safeMatric}-doc-${idx + 1}.${ext}`;
+            const { error } = await supabase.storage
+              .from('receipts')
+              .upload(path, blob, { contentType: mime, upsert: true });
+            if (error) throw error;
+            uploadedPaths.push(path);
+            return { ok: true, path } as const;
+          } catch (err: any) {
+            console.error('Upload failed', { index: idx, err });
+            return { ok: false, index: idx, message: err?.message || 'Unknown error' } as const;
+          }
+        });
+
+        const results = await Promise.allSettled(uploadPromises);
+        const failures: { index: number; message: string }[] = [];
+        results.forEach((r) => {
+          if (r.status === 'fulfilled' && !r.value.ok) failures.push({ index: r.value.index, message: r.value.message });
+          if (r.status === 'rejected') failures.push({ index: -1, message: (r as any).reason?.message || 'Upload promise rejected' });
+        });
+
+        if (failures.length > 0) {
+          // eslint-disable-next-line no-alert
+          alert(`Failed to upload ${failures.length} file(s). Example error: ${failures[0].message}.\nCheck bucket 'receipts' existence and storage policies.`);
+          return; // stop submit flow on upload failure
+        }
+
+        // Store public URLs locally for later use (optional)
+        try {
+          const urls = uploadedPaths.map((p) => supabase.storage.from('receipts').getPublicUrl(p).data.publicUrl);
+          if (typeof window !== 'undefined') localStorage.setItem(`receipts-${matric}`, JSON.stringify(urls));
+        } catch {}
+      }
+
+      // Persist to Supabase: profiles table (matric_number as PK)
+      const profilePayload = {
+        matric_number: formData.academicInfo.matricNumber,
+        name: `${formData.personalInfo.firstName} ${formData.personalInfo.lastName}`.trim(),
+        institution_type: formData.academicInfo.institutionType,
+        first_name: formData.personalInfo.firstName,
+        last_name: formData.personalInfo.lastName,
+        email: formData.personalInfo.email,
+        department: formData.academicInfo.department,
+        school: formData.academicInfo.school,
+        level: formData.academicInfo.level,
+        teller_number: "", // not collected here; placeholder
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .upsert(profilePayload, { onConflict: 'matric_number' });
+
+      if (error) {
+        // Surface error and stop navigation
+        // eslint-disable-next-line no-alert
+        alert(`Failed to save profile: ${error.message}`);
+        return;
+      }
+
+      // Optionally keep local copy for the generator page overlay feature
       try {
         if (typeof window !== 'undefined') {
           const key = `formData-${formData.academicInfo.matricNumber}`;
           localStorage.setItem(key, JSON.stringify(formData));
         }
       } catch {}
+
       router.push(`/get-form/generate?matricNumber=${formData.academicInfo.matricNumber}`);
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert('Unexpected error saving data. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
