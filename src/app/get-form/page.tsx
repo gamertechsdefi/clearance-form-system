@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useFormData } from "../../contexts/FormDataContext"
 
 type FormData = {
   personalInfo: {
@@ -27,22 +28,24 @@ export default function GetForm() {
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<FormData>({
     personalInfo: { firstName: '', lastName: '', email: '' },
-    academicInfo: { 
+    academicInfo: {
       institutionType: '',
-      department: '', 
-      level: '', 
+      department: '',
+      level: '',
       matricNumber: '',
       school: ''
     },
-    clearanceInfo: { 
-      reason: '', 
-      dateNeeded: '', 
-      images: [] 
+    clearanceInfo: {
+      reason: '',
+      dateNeeded: '',
+      images: []
     },
   });
-  const [formErrors, setFormErrors] = useState({ images: '' });
+  const [formErrors, setFormErrors] = useState({ images: '', general: '' });
   const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const router = useRouter();
+  const { setFormData: setContextFormData } = useFormData();
 
   // Update images array when institution type changes or on initial load
   useEffect(() => {
@@ -59,14 +62,63 @@ export default function GetForm() {
   }, [formData.academicInfo.institutionType]);
 
   const validateStep = () => {
-    const errors = { images: '' };
+    const errors = { images: '', general: '' };
     let isValid = true;
 
-    if (step === 2) {
-      const allImagesUploaded = formData.clearanceInfo.images.every(image => image !== null);
-      if (!allImagesUploaded) {
-        errors.images = 'Please upload all required documents.';
+    // Clear previous success message
+    setSuccessMessage('');
+
+    // Validate step 0 (Personal Information)
+    if (step === 0) {
+      if (!formData.personalInfo.firstName.trim()) {
+        errors.general = 'First name is required.';
         isValid = false;
+      } else if (!formData.personalInfo.lastName.trim()) {
+        errors.general = 'Last name is required.';
+        isValid = false;
+      } else if (!formData.personalInfo.email.trim()) {
+        errors.general = 'Email is required.';
+        isValid = false;
+      } else if (!/\S+@\S+\.\S+/.test(formData.personalInfo.email)) {
+        errors.general = 'Please enter a valid email address.';
+        isValid = false;
+      }
+    }
+
+    // Validate step 1 (Academic Information)
+    if (step === 1) {
+      if (!formData.academicInfo.institutionType) {
+        errors.general = 'Please select an institution type.';
+        isValid = false;
+      } else if (!formData.academicInfo.department) {
+        errors.general = 'Please select a department.';
+        isValid = false;
+      } else if (!formData.academicInfo.level) {
+        errors.general = 'Please select your level.';
+        isValid = false;
+      } else if (!formData.academicInfo.matricNumber.trim()) {
+        errors.general = 'Matric number is required.';
+        isValid = false;
+      } else if (formData.academicInfo.institutionType === 'other' && !formData.academicInfo.school.trim()) {
+        errors.general = 'School name is required for other institutions.';
+        isValid = false;
+      }
+    }
+
+    // Validate step 2 (Documents)
+    if (step === 2) {
+      if (!formData.clearanceInfo.reason) {
+        errors.general = 'Please select a reason for clearance.';
+        isValid = false;
+      } else if (!formData.clearanceInfo.dateNeeded) {
+        errors.general = 'Please select when you need the clearance.';
+        isValid = false;
+      } else {
+        const allImagesUploaded = formData.clearanceInfo.images.every(image => image !== null);
+        if (!allImagesUploaded) {
+          errors.images = 'Please upload all required documents.';
+          isValid = false;
+        }
       }
     }
 
@@ -77,7 +129,11 @@ export default function GetForm() {
   const nextStep = (e: React.FormEvent) => {
     e.preventDefault();
     if (validateStep() && step < 2) {
-      setStep(step + 1);
+      setSuccessMessage('Step completed successfully!');
+      setTimeout(() => {
+        setStep(step + 1);
+        setSuccessMessage('');
+      }, 500);
     }
   };
 
@@ -130,12 +186,6 @@ export default function GetForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateStep()) {
-      try {
-        if (typeof window !== 'undefined') {
-          const key = `formData-${formData.academicInfo.matricNumber}`;
-          localStorage.setItem(key, JSON.stringify(formData));
-        }
-      } catch {}
       router.push(`/get-form/generate?matricNumber=${formData.academicInfo.matricNumber}`);
     }
   };
@@ -384,6 +434,20 @@ export default function GetForm() {
             <h1 className="text-2xl font-bold text-gray-800 mb-6">
               {steps[step].title}
             </h1>
+
+            {/* Success Message */}
+            {successMessage && (
+              <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+                {successMessage}
+              </div>
+            )}
+
+            {/* Error Message */}
+            {formErrors.general && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                {formErrors.general}
+              </div>
+            )}
 
             <form onSubmit={step === steps.length - 1 ? handleSubmit : nextStep}>
               <div className="space-y-4">
