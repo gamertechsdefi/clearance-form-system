@@ -66,9 +66,10 @@ export default function AdminPage() {
         .map((f) => supabase.storage.from("receipts").getPublicUrl(f.name).data.publicUrl);
 
       setImages(urls);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err?.message || "Failed to fetch data");
+      const msg = err instanceof Error ? err.message : (typeof err === 'string' ? err : "Failed to fetch data");
+      setError(msg);
     } finally {
       setLoading(false);
     }
